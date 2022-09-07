@@ -175,3 +175,53 @@ anova(fit_null, fit_alt) %>%
     ## 1 price ~ stars                 30528    1.03e9    NA NA          NA  NA        
     ## 2 price ~ stars + borough       30525    1.01e9     3  2.53e7    256.  7.84e-164
     ## # … with abbreviated variable name ¹​statistic
+
+## Nest data and fit models
+
+This is prertty formal and complex
+
+``` r
+fit = lm(price ~ stars * borough + room_type * borough, data = nyc_airbnb)
+
+lm_dat = broom::tidy(fit)
+```
+
+This is more exploratory and easier to understand
+
+``` r
+df = nyc_airbnb %>% 
+  nest(data = -borough) %>% 
+  mutate(
+    models = map(.x = data, ~lm(price ~ stars + room_type, data = .x)),
+    results = map(models, broom::tidy)
+  ) %>% 
+  select(-data, -models) %>% 
+  unnest(results) %>% 
+  filter(term != "(Intercept)") %>%
+  select(borough, term, estimate) %>% 
+  pivot_wider(
+    names_from = borough,
+    values_from = estimate
+  )
+```
+
+Let’s nest even more
+
+``` r
+nyc_airbnb %>% 
+  filter(borough == "Manhattan") %>% 
+  nest(data = -neighborhood) %>% 
+  mutate(
+    models = map(.x = data, ~lm(price ~ stars + room_type, data = .x)),
+    results = map(models, broom::tidy)
+  ) %>% 
+  select(-data, -models) %>% 
+  unnest(results) %>%
+  filter(str_detect(term, "room_type")) %>% 
+  ggplot(aes(x = neighborhood, y = estimate)) +
+  geom_point() +
+  facet_wrap(. ~ term) +
+  theme(axis.text.x = element_text(angle = 70, vjust = 0.5, hjust = 1))
+```
+
+<img src="linear_models_files/figure-gfm/unnamed-chunk-14-1.png" width="90%" />
